@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ar"> 
+ <head> 
+  <meta charset="UTF-8"> 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+  <title>الدردشة العامة</title> 
+  <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('https://i.pinimg.com/originals/04/e4/7e/04e47e2855c78b802b523ff6d1357b25.gif');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            height: 100vh;
+            color: white;
+            margin: 0;
+        }
+        #header {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 48px;
+            font-weight: bold;
+        }
+        #messages {
+            border: 1px solid #ccc;
+            margin-top: 20px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+        }
+        #chatInput {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #activeUsers {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+        }
+        /* نافذة الرسائل الخاصة */
+        #privateMessageWindow {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            color: black;
+            border-radius: 10px;
+            padding: 20px;
+            width: 300px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        #privateMessageWindow button {
+            margin-top: 10px;
+        }
+    </style> 
+ </head> 
+ <body> 
+  <div id="header"> <span class="fam">Fam</span><span class="link">Link</span> 
+  </div> 
+  <div id="messages"></div> <textarea id="chatInput" placeholder="اكتب رسالتك هنا..."></textarea>
+  <br> <button id="sendBtn">إرسال</button> 
+  <div id="activeUsers"> 
+   <h3>المتواجدين الآن:</h3> 
+   <ul id="userList"></ul> 
+  </div> 
+  <!-- نافذة الرسائل الخاصة -->
+  <div id="privateMessageWindow">
+      <h3>إرسال رسالة خاصة إلى <span id="privateUsername"></span></h3>
+      <textarea id="privateMessageInput" placeholder="اكتب رسالتك هنا..."></textarea>
+      <br>
+      <button id="sendPrivateMessageBtn">إرسال</button>
+      <button id="closePrivateMessageBtn">إغلاق</button>
+  </div>
+  <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getDatabase, ref, push, set, onChildAdded, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCnHSUo_Vu53NidFWYlQ74_CyOyfVW_BqQ",
+            authDomain: "alaah-8d503.firebaseapp.com",
+            databaseURL: "https://alaah-8d503-default-rtdb.firebaseio.com",
+            projectId: "alaah-8d503",
+            storageBucket: "alaah-8d503.firebasestorage.app",
+            messagingSenderId: "365922482892",
+            appId: "1:365922482892:web:a843fbb3594d200c67e069",
+            measurementId: "G-D4TPJW4RT8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        const username = sessionStorage.getItem("username");
+        const userColor = sessionStorage.getItem("usercolor");
+
+        if (!username || !userColor) {
+            alert("من فضلك قم بتسجيل الدخول أولاً!");
+            window.location.href = "index.html";
+        }
+
+        const activeUsersRef = ref(database, 'activeUsers');
+        const userRef = push(activeUsersRef);
+        set(userRef, { username });
+
+        onDisconnect(userRef).remove();
+
+        const userListElement = document.getElementById('userList');
+        const privateMessageWindow = document.getElementById('privateMessageWindow');
+        const privateUsernameElement = document.getElementById('privateUsername');
+        const privateMessageInput = document.getElementById('privateMessageInput');
+
+        function updateActiveUsers() {
+            userListElement.innerHTML = '';
+            onValue(activeUsersRef, function(snapshot) {
+                snapshot.forEach(function(childSnapshot) {
+                    const user = childSnapshot.val();
+                    const listItem = document.createElement('li');
+                    listItem.textContent = user.username;
+                    listItem.style.cursor = "pointer";
+                    listItem.onclick = function() {
+                        privateMessageWindow.style.display = "block";
+                        privateUsernameElement.textContent = user.username;
+                    };
+                    userListElement.appendChild(listItem);
+                });
+            });
+        }
+
+        document.getElementById('closePrivateMessageBtn').addEventListener('click', function() {
+            privateMessageWindow.style.display = "none";
+        });
+
+        document.getElementById('sendPrivateMessageBtn').addEventListener('click', function() {
+            const privateMessage = privateMessageInput.value.trim();
+            const recipient = privateUsernameElement.textContent;
+            if (privateMessage) {
+                const privateMessagesRef = ref(database, `privateMessages/${recipient}`);
+                push(privateMessagesRef, {
+                    sender: username,
+                    message: privateMessage,
+                    timestamp: new Date().toISOString()
+                });
+                privateMessageInput.value = "";
+                alert("تم إرسال الرسالة!");
+            }
+        });
+
+        updateActiveUsers();
+    </script> 
+ 
+</body></html>
